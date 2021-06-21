@@ -1,6 +1,7 @@
 package server
 
 import (
+	"fmt"
 	log "github.com/sirupsen/logrus"
 	"net/http"
 	"os"
@@ -32,4 +33,28 @@ func (s *Server) WaitForKillSignal(killSignalChan <-chan os.Signal) {
 	case syscall.SIGTERM:
 		log.Info("got SIGTERM...")
 	}
+}
+
+func HealthCheckHandler(w http.ResponseWriter, _ *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	_, _ = fmt.Fprint(w, "{\"status\": \"OK\"}")
+}
+
+func ReadyCheckHandler(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	_, _ = fmt.Fprintf(w, "{\"host\": \"%v\"}", r.Host)
+}
+
+func LogMiddleware(h http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		log.WithFields(log.Fields{
+			"method":     r.Method,
+			"url":        r.URL,
+			"remoteAddr": r.RemoteAddr,
+			"userAgent":  r.UserAgent(),
+		}).Info("got a new request")
+		h.ServeHTTP(w, r)
+	})
 }
